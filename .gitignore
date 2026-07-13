@@ -56,12 +56,8 @@ captures/
 node_modules/
 **/node_modules/
 
-# Personal / report documents — never commit
-*.docx
-*.doc
-*.zip
-*.rar
-*.7z
-*.pdf
-README_UAS.md
-SIRS_ANDROID_FIREBASE_SPARK_CLOUDINARY_FREE_PRD_SRS.md
+# Personal / non-project folders — never commit
+credent
+Form Response/
+scripts/
+docs/screenshots/
