@@ -1,0 +1,57 @@
+# Built application files
+*.apk
+*.aar
+*.ap_
+*.aab
+*.apks
+
+# Java / Kotlin class files
+*.class
+*.dex
+
+# Generated build output (ALL modules, not just root)
+bin/
+gen/
+out/
+build/
+**/build/
+
+# Gradle
+.gradle/
+**/.gradle/
+gradle-app.setting
+
+# Local configuration (SDK path on this machine — DO NOT COMMIT)
+local.properties
+
+# Log / OS files
+*.log
+.DS_Store
+Thumbs.db
+captures/
+
+# Android Studio / IntelliJ
+*.iml
+.idea/
+**/.idea/
+
+# Keystore / signing
+*.jks
+*.keystore
+
+# External native build
+.externalNativeBuild/
+.cxx/
+
+# Kotlin
+.kotlin/
+**/.kotlin/
+
+# Office lock / temp files
+~$*
+~WRL*.tmp
+*.tmp
+
+# Node (Cloudinary worker) — dependencies only
+node_modules/
+**/node_modules/

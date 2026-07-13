@@ -1,0 +1,191 @@
+// Menggunakan versi aturan terbaru (v2) dari Firebase Firestore
+rules_version = '2';
+
+// Mendefinisikan aturan keamanan untuk layanan Cloud Firestore
+service cloud.firestore {
+  
+  // Berlaku untuk semua database dan dokumen di dalamnya
+  match /databases/{database}/documents {
+
+    // =====================================================================
+    // FUNGSI BANTUAN (HELPER FUNCTIONS)
+    // =====================================================================
+
+    // Mengecek apakah pengguna sudah login (memiliki token autentikasi Firebase)
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    // Mengecek apakah pengguna sudah login DAN UID-nya cocok dengan UID yang sedang diakses
+    function isOwner(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    // Mengambil profil pengguna yang sedang login dari koleksi 'users' di database
+    function currentUserDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    // Mengecek apakah pengguna adalah Admin. 
+    // Syarat: Login -> Profilnya ada di database -> rolenya 'administrator' -> statusnya aktif
+    function isAdmin() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && currentUserDoc().data.role == 'administrator'
+        && currentUserDoc().data.isActive == true;
+    }
+
+    // Mengecek apakah pengguna adalah user biasa yang akunnya sedang aktif (tidak diblokir)
+    function isActiveUser() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && currentUserDoc().data.isActive == true;
+    }
+
+    // Memvalidasi saat proses registrasi/pembuatan user baru:
+    // Harus pemilik akun sendiri, UID dan Email harus cocok dengan data token Firebase Auth,
+    // role otomatis di-set 'user', dan akun langsung aktif.
+    function validUserCreate(uid) {
+      return isOwner(uid)
+        && request.resource.data.uid == uid
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.role == 'user'
+        && request.resource.data.isActive == true;
+    }
+
+    // Memvalidasi saat pembuatan laporan baru (Cegah data kotor masuk):
+    // Pembuat harus user aktif, userId harus sesuai UID login, status awal wajib 'pending', belum dihapus,
+    // serta memeriksa batas karakter untuk judul (5-150), deskripsi (20-4000), lokasi (3-255), 
+    // dan tingkat keparahan (low/medium/high/critical).
+    function validReportCreate() {
+      return isActiveUser()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.status == 'pending'
+        && request.resource.data.deletedAt == null
+        && request.resource.data.title is string
+        && request.resource.data.title.size() >= 5
+        && request.resource.data.title.size() <= 150
+        && request.resource.data.description is string
+        && request.resource.data.description.size() >= 20
+        && request.resource.data.description.size() <= 4000
+        && request.resource.data.location is string
+        && request.resource.data.location.size() >= 3
+        && request.resource.data.location.size() <= 255
+        && request.resource.data.severity in ['low', 'medium', 'high', 'critical'];
+    }
+
+    // Mengecek apakah laporan yang sedang dibaca/diubah benar-benar milik pengguna yang sedang login
+    function ownsExistingReport() {
+      return isActiveUser() && resource.data.userId == request.auth.uid;
+    }
+
+    // Mengizinkan penarikan daftar laporan: Admin boleh menarik semua laporan, 
+    // sedangkan User aktif diizinkan (dengan catatan di kode Android querynya hanya menarik laporannya sendiri)
+    function canListReports() {
+      return isAdmin() || (isActiveUser() && request.auth.uid != null); // Allow query if it's filtered to user's own uid in Android code
+    }
+
+    // Memvalidasi pengeditan laporan oleh user:
+    // Laporan harus miliknya, statusnya harus masih 'pending', dan user dilarang meretas/mengubah userId atau statusnya sendiri
+    function onlyPendingOwnerEdit() {
+      return ownsExistingReport()
+        && resource.data.status == 'pending'
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.status == resource.data.status;
+    }
+
+    // Menentukan siapa yang berhak menghapus laporan: 
+    // Admin boleh hapus semuanya. Pemilik hanya boleh menghapus miliknya sendiri selama masih 'pending'.
+    function canDeleteExistingReport() {
+      return isAdmin()
+        || (ownsExistingReport() && resource.data.status == 'pending');
+    }
+
+    // =====================================================================
+    // ATURAN PER KOLEKSI (COLLECTION RULES)
+    // =====================================================================
+
+    // 1. Aturan untuk koleksi 'users'
+    match /users/{uid} {
+      // Boleh menyimpan data jika validasinya lolos (user baru registrasi) ATAU jika dia Admin
+      allow create: if validUserCreate(uid) || isAdmin();
+      // Boleh melihat profil jika itu adalah profilnya sendiri ATAU jika dia Admin
+      allow read: if isOwner(uid) || isAdmin();
+      // Pemilik profil boleh update data, TAPI dilarang mengubah UID, Email, Role, dan status Aktif (Cegah eskalasi hak)
+      allow update: if isOwner(uid)
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.email == resource.data.email
+        && request.resource.data.role == resource.data.role
+        && request.resource.data.isActive == resource.data.isActive;
+      // Hanya Admin yang punya kontrol penuh untuk memblokir (update) atau menghapus user
+      allow update, delete: if isAdmin();
+    }
+
+    // 2. Aturan untuk koleksi 'categories'
+    match /categories/{categoryId} {
+      // Semua user yang aktif boleh membaca daftar kategori untuk mengisi form
+      allow read: if isActiveUser();
+      // Hanya Admin yang bisa menambah, mengubah, atau menghapus kategori
+      allow create, update, delete: if isAdmin();
+    }
+
+    // 3. Aturan untuk koleksi 'incidentReports' (Laporan Insiden Utama)
+    match /incidentReports/{reportId} {
+      // Boleh buat laporan baru jika datanya lolos semua validasi
+      allow create: if validReportCreate();
+      // Boleh baca detail 1 laporan jika dia Admin ATAU jika dia yang membuat laporan tersebut
+      allow get: if isAdmin() || ownsExistingReport();
+      // Boleh tarik daftar banyak laporan (Sesuai kondisi canListReports)
+      allow list: if canListReports();
+      // Boleh ubah data jika dia Admin (misal: proses laporan) ATAU jika dia pemilik laporan & statusnya masih pending
+      allow update: if isAdmin() || onlyPendingOwnerEdit();
+      // Boleh hapus laporan jika dia Admin ATAU jika dia pemilik laporan & statusnya masih pending
+      allow delete: if canDeleteExistingReport();
+
+      // 3.1. Aturan untuk sub-koleksi 'statusHistories' (Jejak riwayat perubahan status di dalam laporan)
+      match /statusHistories/{historyId} {
+        // Boleh baca riwayat jika dia Admin ATAU jika dia pemilik dari laporan induknya
+        allow read: if isAdmin()
+          || (isActiveUser()
+            && get(/databases/$(database)/documents/incidentReports/$(reportId)).data.userId == request.auth.uid);
+        // Hanya Admin yang boleh menambah atau mengubah riwayat status
+        allow create, update: if isAdmin();
+        // Admin boleh hapus riwayat. User juga otomatis diizinkan menghapus HANYA saat 
+        // dia menghapus laporan utamanya (fitur hapus berantai/batch delete) yang masih pending.
+        allow delete: if isAdmin()
+          || (isActiveUser()
+            && get(/databases/$(database)/documents/incidentReports/$(reportId)).data.userId == request.auth.uid
+            && get(/databases/$(database)/documents/incidentReports/$(reportId)).data.status == 'pending');
+      }
+    }
+
+    // 4. Aturan untuk koleksi 'activityLogs' (Catatan Rekam Jejak Sistem / Audit)
+    match /activityLogs/{logId} {
+      // Hanya Admin yang boleh melihat log aktivitas sistem
+      allow read: if isAdmin();
+      // User aktif (dan Admin) boleh merekam log, asalkan aktor ID-nya sesuai dengan ID aslinya
+      allow create: if isActiveUser()
+        && request.resource.data.actorId == request.auth.uid
+        && request.resource.data.actorRole in ['user', 'administrator'];
+      // Log aktivitas TIDAK BOLEH diubah atau dihapus oleh SIAPAPUN (Menjaga keaslian barang bukti jejak sistem)
+      allow update, delete: if false;
+    }
+
+    // 5. Aturan untuk koleksi 'deviceTokens' (Token Push Notification FCM)
+    match /deviceTokens/{tokenId} {
+      // Hanya Admin yang boleh menarik token untuk mengirim notifikasi push
+      allow read: if isAdmin();
+      // User aktif boleh menyimpan/update token perangkatnya sendiri
+      allow create, update: if isActiveUser()
+        && request.resource.data.uid == request.auth.uid;
+      // User aktif boleh menghapus token perangkatnya sendiri (misalnya saat logout)
+      allow delete: if isActiveUser() && resource.data.uid == request.auth.uid;
+    }
+
+    // 6. Aturan Kunci (Default Deny)
+    // Kunci semua akses untuk URL/koleksi lain yang tidak didefinisikan secara spesifik di atas
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

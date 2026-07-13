@@ -1,0 +1,49 @@
+{
+  "project_info": {
+    "project_number": "123472963435",
+    "firebase_url": "https://androapp-f262d-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "androapp-f262d",
+    "storage_bucket": "androapp-f262d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:123472963435:android:c3a1355244053067bb8e2e",
+        "android_client_info": {
+          "package_name": "com.adit.sirs"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCMbf2jo080CSQnay_7FNHiiFj7l46V00I"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:123472963435:android:89ba88b12883f98bbb8e2e",
+        "android_client_info": {
+          "package_name": "com.adit.todoapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCMbf2jo080CSQnay_7FNHiiFj7l46V00I"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

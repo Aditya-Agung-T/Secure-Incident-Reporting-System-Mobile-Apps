@@ -1,0 +1,14 @@
+Ketentuan umum projek akhir:
+
+    Orisinalitas Tema: Bebas memilih tema/judul aplikasi, namun alur kerja dan isinya tidak boleh sama dengan mahasiswa lain dalam satu kelas. Buat aplikasi Anda seunik mungkin!
+    Spesifikasi Teknologi:
+        Bahasa Pemrograman: Wajib menggunakan Kotlin
+        UI Framework: Wajib menggunakan Jetpack Compose
+    Arsitektur Kode: Disarankan menerapkan MVVM Pattern agar kode rapi dan mudah diuji.
+    Wajib mengimplementasikan persyaratan keamanan yang sudah dipelajari sebelumnya.
+    Sanksi Plagiarisme: Jika terbukti melakukan plagiarisme (menyalin kode atau laporan milik orang lain), nilai UAS praktikum Anda otomatis 0 (Nol).
+    Template laporan dapat dilihat pada google classroom.
+Form:
+Judul Projek Akhir *
+Deskripsi Judul/Aplikasi *
+Fitur Aplikasi *
